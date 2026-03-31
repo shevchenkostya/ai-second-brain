@@ -1,0 +1,6 @@
+arq==0.26.1
+redis==5.1.0
+sqlalchemy==2.0.35
+asyncpg==0.29.0
+pydantic-settings==2.4.0
+python-dotenv==1.0.1
