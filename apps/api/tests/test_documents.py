@@ -22,7 +22,7 @@ async def test_upload_markdown_document(client):
     data = response.json()
     assert data["title"] == "readme.md"
     assert data["source_type"] == "md"
-    assert data["status"] == "uploaded"
+    assert data["status"] == "queued"
     assert "id" in data
     assert "workspace_id" in data
 
@@ -31,7 +31,20 @@ async def test_upload_markdown_document(client):
 async def test_upload_txt_document(client):
     response = await client.post("/api/documents/upload", files=make_file("notes.txt"))
     assert response.status_code == 201
-    assert response.json()["source_type"] == "txt"
+    data = response.json()
+    assert data["source_type"] == "txt"
+    assert data["status"] == "queued"
+
+
+@pytest.mark.asyncio
+async def test_upload_enqueues_job(client):
+    """Upload should call arq_pool.enqueue_job with 'index_document' and the new doc id."""
+    from main import app
+    response = await client.post("/api/documents/upload", files=make_file("spec.md"))
+    assert response.status_code == 201
+    doc_id = response.json()["id"]
+
+    app.state.arq_pool.enqueue_job.assert_called_with("index_document", doc_id)
 
 
 @pytest.mark.asyncio
@@ -83,4 +96,39 @@ async def test_delete_document(client):
 async def test_delete_nonexistent_document_returns_404(client):
     fake_id = "00000000-0000-0000-0000-000000000000"
     response = await client.delete(f"/api/documents/{fake_id}")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_chunks_empty(client):
+    """Freshly uploaded document has no chunks yet (worker hasn't run)."""
+    upload = await client.post("/api/documents/upload", files=make_file("chunks.md"))
+    doc_id = upload.json()["id"]
+
+    response = await client.get(f"/api/documents/{doc_id}/chunks")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.asyncio
+async def test_reindex_document(client):
+    """Reindex should reset status to 'queued' and enqueue a new job."""
+    from main import app
+    upload = await client.post("/api/documents/upload", files=make_file("reindex.md"))
+    doc_id = upload.json()["id"]
+
+    app.state.arq_pool.enqueue_job.reset_mock()
+
+    response = await client.post(f"/api/documents/{doc_id}/reindex")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "queued"
+
+    app.state.arq_pool.enqueue_job.assert_called_with("index_document", doc_id)
+
+
+@pytest.mark.asyncio
+async def test_reindex_nonexistent_returns_404(client):
+    fake_id = "00000000-0000-0000-0000-000000000000"
+    response = await client.post(f"/api/documents/{fake_id}/reindex")
     assert response.status_code == 404
