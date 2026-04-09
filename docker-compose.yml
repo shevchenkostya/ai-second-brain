@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   web:
     build: ./apps/web
@@ -25,6 +23,8 @@ services:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/second_brain
       - REDIS_URL=redis://redis:6379
       - QDRANT_URL=http://qdrant:6333
+    env_file:
+      - .env.local
     volumes:
       - uploads_data:/app/uploads
 
@@ -35,9 +35,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      qdrant:
+        condition: service_started
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/second_brain
       - REDIS_URL=redis://redis:6379
+      - QDRANT_URL=http://qdrant:6333
+    env_file:
+      - .env.local
+    volumes:
+      - uploads_data:/app/uploads
 
   db:
     image: postgres:16

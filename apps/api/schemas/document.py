@@ -19,3 +19,14 @@ class DocumentOut(BaseModel):
 class DocumentListOut(BaseModel):
     items: list[DocumentOut]
     total: int
+
+
+class ChunkOut(BaseModel):
+    id: uuid.UUID
+    document_id: uuid.UUID
+    chunk_index: int
+    text: str
+    token_count: int | None
+    vector_ref: str | None
+
+    model_config = {"from_attributes": True}

@@ -1,11 +1,14 @@
+from contextlib import asynccontextmanager
+
+from alembic import command
+from alembic.config import Config
+from arq import create_pool
+from arq.connections import RedisSettings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from alembic.config import Config
-from alembic import command
 
 from config import settings
-from routers import health
-from routers import documents
+from routers import health, documents
 
 
 def run_migrations() -> None:
@@ -13,12 +16,15 @@ def run_migrations() -> None:
     command.upgrade(alembic_cfg, "head")
 
 
-app = FastAPI(title="AI Second Brain API", version="0.1.0")
-
-
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     run_migrations()
+    app.state.arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+    yield
+    await app.state.arq_pool.aclose()
+
+
+app = FastAPI(title="AI Second Brain API", version="0.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

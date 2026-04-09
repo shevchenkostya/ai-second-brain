@@ -7,6 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.document import Document
+from models.document_chunk import DocumentChunk
 from models.workspace import Workspace
 
 UPLOAD_DIR = Path("/app/uploads")
@@ -26,7 +27,7 @@ async def get_or_create_default_workspace(db: AsyncSession) -> Workspace:
     return workspace
 
 
-async def upload_document(file: UploadFile, db: AsyncSession) -> Document:
+async def upload_document(file: UploadFile, db: AsyncSession, arq_pool) -> Document:
     workspace = await get_or_create_default_workspace(db)
 
     content = await file.read()
@@ -47,11 +48,34 @@ async def upload_document(file: UploadFile, db: AsyncSession) -> Document:
         mime_type=file.content_type,
         file_path=str(file_path),
         checksum=checksum,
-        status="uploaded",
+        status="queued",
     )
     db.add(document)
     await db.commit()
     await db.refresh(document)
+
+    await arq_pool.enqueue_job("index_document", str(document.id))
+    return document
+
+
+async def reindex_document(document_id: uuid.UUID, db: AsyncSession, arq_pool) -> Document | None:
+    result = await db.execute(select(Document).where(Document.id == document_id))
+    document = result.scalar_one_or_none()
+    if document is None:
+        return None
+
+    # Clear existing chunks
+    chunks = await db.execute(
+        select(DocumentChunk).where(DocumentChunk.document_id == document_id)
+    )
+    for chunk in chunks.scalars().all():
+        await db.delete(chunk)
+
+    document.status = "queued"
+    await db.commit()
+    await db.refresh(document)
+
+    await arq_pool.enqueue_job("index_document", str(document.id))
     return document
 
 
@@ -66,6 +90,15 @@ async def list_documents(db: AsyncSession) -> tuple[list[Document], int]:
 async def get_document(document_id: uuid.UUID, db: AsyncSession) -> Document | None:
     result = await db.execute(select(Document).where(Document.id == document_id))
     return result.scalar_one_or_none()
+
+
+async def get_document_chunks(document_id: uuid.UUID, db: AsyncSession) -> list[DocumentChunk]:
+    result = await db.execute(
+        select(DocumentChunk)
+        .where(DocumentChunk.document_id == document_id)
+        .order_by(DocumentChunk.chunk_index)
+    )
+    return list(result.scalars().all())
 
 
 async def delete_document(document_id: uuid.UUID, db: AsyncSession) -> bool:

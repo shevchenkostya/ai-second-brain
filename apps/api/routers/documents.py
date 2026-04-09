@@ -1,11 +1,14 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from schemas.document import DocumentOut, DocumentListOut
-from services.document import upload_document, list_documents, get_document, delete_document
+from schemas.document import DocumentOut, DocumentListOut, ChunkOut
+from services.document import (
+    upload_document, list_documents, get_document,
+    get_document_chunks, reindex_document, delete_document,
+)
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -13,11 +16,11 @@ ALLOWED_EXTENSIONS = {"md", "txt", "pdf", "docx", "json", "yaml", "html"}
 
 
 @router.post("/upload", response_model=DocumentOut, status_code=201)
-async def upload(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+async def upload(request: Request, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     ext = (file.filename or "").rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: .{ext}")
-    document = await upload_document(file, db)
+    document = await upload_document(file, db, request.app.state.arq_pool)
     return document
 
 
@@ -30,6 +33,23 @@ async def list_docs(db: AsyncSession = Depends(get_db)):
 @router.get("/{document_id}", response_model=DocumentOut)
 async def get_doc(document_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     document = await get_document(document_id, db)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return document
+
+
+@router.get("/{document_id}/chunks", response_model=list[ChunkOut])
+async def get_chunks(document_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    document = await get_document(document_id, db)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    chunks = await get_document_chunks(document_id, db)
+    return chunks
+
+
+@router.post("/{document_id}/reindex", response_model=DocumentOut)
+async def reindex(document_id: uuid.UUID, request: Request, db: AsyncSession = Depends(get_db)):
+    document = await reindex_document(document_id, db, request.app.state.arq_pool)
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
     return document
