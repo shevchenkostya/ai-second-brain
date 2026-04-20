@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     embedding_dim: int = 1536
     qdrant_collection: str = "documents"
 
-    # LLM (Sprint 3+)
+    # LLM
+    llm_provider: str = "mock"  # mock | anthropic
     anthropic_api_key: str = ""
 
     model_config = SettingsConfigDict(env_file=".env.local", extra="ignore")

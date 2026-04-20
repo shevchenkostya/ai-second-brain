@@ -9,9 +9,15 @@ export default function Home() {
         <div className="mt-8 flex gap-4 justify-center">
           <Link
             href="/documents"
-            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-700"
+            className="px-4 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg text-sm font-medium hover:border-gray-400 transition-colors"
           >
             Documents
+          </Link>
+          <Link
+            href="/chat"
+            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors"
+          >
+            Start chatting
           </Link>
         </div>
       </div>

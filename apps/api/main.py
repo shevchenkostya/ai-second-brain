@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from routers import health, documents
+from routers import chats
 
 
 def run_migrations() -> None:
@@ -35,6 +36,7 @@ app.add_middleware(
 
 app.include_router(health.router, tags=["health"])
 app.include_router(documents.router)
+app.include_router(chats.router)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-const API_URL = process.env.API_URL ?? "http://localhost:4000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? "http://localhost:4000";
 
 export interface Document {
   id: string;
@@ -39,4 +39,73 @@ export async function uploadDocument(file: File): Promise<Document> {
 export async function deleteDocument(id: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/documents/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete document");
+}
+
+// ── Chat types ────────────────────────────────────────────────────────────────
+
+export interface Citation {
+  chunk_id: string;
+  document_id: string;
+  document_title: string;
+  text: string;
+  score: number;
+}
+
+export interface Message {
+  id: string;
+  chat_id: string;
+  role: "user" | "assistant";
+  content: string;
+  citations: Citation[];
+  created_at: string;
+}
+
+export interface Chat {
+  id: string;
+  workspace_id: string;
+  title: string | null;
+  created_at: string;
+  messages: Message[];
+}
+
+// ── Chat API ──────────────────────────────────────────────────────────────────
+
+export async function fetchChats(): Promise<Chat[]> {
+  const res = await fetch(`${API_URL}/api/chats`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch chats");
+  return res.json();
+}
+
+export async function fetchChat(id: string): Promise<Chat> {
+  const res = await fetch(`${API_URL}/api/chats/${id}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Chat not found");
+  return res.json();
+}
+
+export async function createChat(title?: string): Promise<Chat> {
+  const res = await fetch(`${API_URL}/api/chats`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title: title ?? null }),
+  });
+  if (!res.ok) throw new Error("Failed to create chat");
+  return res.json();
+}
+
+export async function deleteChat(id: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/chats/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete chat");
+}
+
+export async function sendMessage(chatId: string, query: string): Promise<Message> {
+  const res = await fetch(`${API_URL}/api/chats/${chatId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Failed to send message");
+  }
+  return res.json();
 }
