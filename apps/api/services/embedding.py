@@ -4,7 +4,6 @@ Uses the same mock/openai provider logic as the worker,
 so retrieval vectors are compatible with indexed vectors.
 """
 import hashlib
-import struct
 
 from config import settings
 
@@ -18,9 +17,10 @@ def embed_query(text: str) -> list[float]:
 
 
 def _mock_embed(text: str) -> list[float]:
-    digest = hashlib.sha256(text.encode()).digest()
-    repeated = (digest * ((EMBEDDING_DIM * 4 // len(digest)) + 1))[: EMBEDDING_DIM * 4]
-    raw = list(struct.unpack(f"{EMBEDDING_DIM}f", repeated))
+    import random
+    seed = int(hashlib.sha256(text.encode()).hexdigest(), 16) % (2**32)
+    rng = random.Random(seed)
+    raw = [rng.gauss(0, 1) for _ in range(EMBEDDING_DIM)]
     norm = sum(x ** 2 for x in raw) ** 0.5 or 1.0
     return [x / norm for x in raw]
 
