@@ -16,8 +16,10 @@ class Settings(BaseSettings):
     qdrant_collection: str = "documents"
 
     # LLM
-    llm_provider: str = "mock"  # mock | anthropic
+    llm_provider: str = "mock"  # mock | anthropic | ollama
     anthropic_api_key: str = ""
+    ollama_url: str = "http://host.docker.internal:11434"
+    ollama_model: str = "llama3.2:3b"
 
     model_config = SettingsConfigDict(env_file=".env.local", extra="ignore")
 
