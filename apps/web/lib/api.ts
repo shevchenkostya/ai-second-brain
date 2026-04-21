@@ -97,11 +97,11 @@ export async function deleteChat(id: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete chat");
 }
 
-export async function sendMessage(chatId: string, query: string): Promise<Message> {
+export async function sendMessage(chatId: string, query: string, language = "auto"): Promise<Message> {
   const res = await fetch(`${API_URL}/api/chats/${chatId}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, language }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

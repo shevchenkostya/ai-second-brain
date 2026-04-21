@@ -49,6 +49,7 @@ async def send_message(
     chat_id: uuid.UUID,
     query: str,
     db: AsyncSession,
+    language: str = "auto",
 ) -> Message:
     # 1. Save user message
     user_msg = Message(chat_id=chat_id, role="user", content=query)
@@ -59,7 +60,7 @@ async def send_message(
     citations = await retrieve_chunks(query=query, db=db)
 
     # 3. Generate grounded answer
-    answer = generate_answer(query=query, citations=citations)
+    answer = generate_answer(query=query, citations=citations, language=language)
 
     # 4. Save assistant message with citations
     assistant_msg = Message(

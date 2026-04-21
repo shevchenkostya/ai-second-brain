@@ -52,3 +52,4 @@ class ChatCreate(BaseModel):
 
 class SendMessageIn(BaseModel):
     query: str
+    language: str = "auto"  # auto | ru | en | uk | de | fr | es | zh

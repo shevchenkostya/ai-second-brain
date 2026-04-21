@@ -70,6 +70,6 @@ async def send_message(
         raise HTTPException(status_code=422, detail="Query cannot be empty")
 
     assistant_msg = await chat_service.send_message(
-        chat_id=chat_id, query=body.query, db=db
+        chat_id=chat_id, query=body.query, db=db, language=body.language
     )
     return MessageOut.from_orm_with_citations(assistant_msg)

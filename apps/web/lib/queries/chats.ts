@@ -31,7 +31,8 @@ export function useDeleteChat() {
 export function useSendMessage(chatId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (query: string) => sendMessage(chatId, query),
+    mutationFn: ({ query, language }: { query: string; language?: string }) =>
+      sendMessage(chatId, query, language),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: chatKey(chatId) }),
   });
 }
