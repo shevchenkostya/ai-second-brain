@@ -109,3 +109,55 @@ export async function sendMessage(chatId: string, query: string, language = "aut
   }
   return res.json();
 }
+
+// ── Artifact types ────────────────────────────────────────────────────────────
+
+export type AnalysisMode = "summarize" | "compare" | "extract_decisions" | "find_contradictions";
+
+export interface Artifact {
+  id: string;
+  artifact_type: AnalysisMode;
+  title: string | null;
+  content: string | null;
+  source_refs: string[];
+  created_at: string;
+}
+
+export interface AnalyzeRequest {
+  mode: AnalysisMode;
+  document_ids: string[];
+  language?: string;
+  title?: string;
+}
+
+// ── Artifact API ──────────────────────────────────────────────────────────────
+
+export async function fetchArtifacts(): Promise<Artifact[]> {
+  const res = await fetch(`${API_URL}/api/artifacts`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch artifacts");
+  return res.json();
+}
+
+export async function fetchArtifact(id: string): Promise<Artifact> {
+  const res = await fetch(`${API_URL}/api/artifacts/${id}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Artifact not found");
+  return res.json();
+}
+
+export async function analyzeDocuments(body: AnalyzeRequest): Promise<Artifact> {
+  const res = await fetch(`${API_URL}/api/artifacts/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Analysis failed");
+  }
+  return res.json();
+}
+
+export async function deleteArtifact(id: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/artifacts/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete artifact");
+}

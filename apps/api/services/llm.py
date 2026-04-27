@@ -142,3 +142,129 @@ def _anthropic_answer(query: str, citations: list[dict], language: str = "auto")
         ],
     )
     return response.content[0].text
+
+
+# ── Analyst agent ─────────────────────────────────────────────────────────────
+
+_ANALYST_SYSTEM_PROMPTS: dict[str, str] = {
+    "summarize": (
+        "You are an expert technical analyst. "
+        "Produce a clear, structured summary of the provided document(s). "
+        "Use markdown headers and bullet points. "
+        "Cover: main purpose, key concepts, important details, and conclusions. "
+        "Base your summary ONLY on the provided content — do not add external knowledge."
+    ),
+    "compare": (
+        "You are an expert technical analyst. "
+        "Compare the provided documents thoroughly. "
+        "Structure your response with markdown as follows:\n"
+        "1. **Overview** — brief description of each document\n"
+        "2. **Similarities** — what the documents have in common\n"
+        "3. **Differences** — key differences, use a table if helpful\n"
+        "4. **Conclusion** — which approach is better and why (if applicable)\n"
+        "Base your analysis ONLY on the provided content."
+    ),
+    "extract_decisions": (
+        "You are an expert technical analyst. "
+        "Extract all decisions, action items, conclusions, and commitments from the provided document(s). "
+        "Format as a numbered list. For each item include:\n"
+        "- The decision or action\n"
+        "- Who is responsible (if mentioned)\n"
+        "- Deadline or context (if mentioned)\n"
+        "Base your extraction ONLY on what is explicitly stated in the documents."
+    ),
+    "find_contradictions": (
+        "You are an expert technical analyst. "
+        "Identify all contradictions, conflicts, and inconsistencies in the provided document(s). "
+        "For each contradiction:\n"
+        "- Quote or describe both conflicting statements\n"
+        "- Indicate which document each comes from\n"
+        "- Suggest how the contradiction might be resolved\n"
+        "If no contradictions are found, say so explicitly. "
+        "Base your analysis ONLY on the provided content."
+    ),
+}
+
+_ANALYST_TITLES: dict[str, str] = {
+    "summarize": "Summary",
+    "compare": "Comparison",
+    "extract_decisions": "Decision Extraction",
+    "find_contradictions": "Contradiction Analysis",
+}
+
+
+def generate_analysis(
+    mode: str,
+    documents: list[dict],  # [{"title": str, "content": str}]
+    language: str = "auto",
+) -> str:
+    system_prompt = _ANALYST_SYSTEM_PROMPTS.get(mode, _ANALYST_SYSTEM_PROMPTS["summarize"])
+    lang = _language_instruction(language)
+    if lang:
+        system_prompt += " " + lang
+
+    doc_context = "\n\n".join(
+        f"=== Document: {d['title']} ===\n{d['content']}"
+        for d in documents
+    )
+    user_message = f"Please analyze the following document(s):\n\n{doc_context}"
+
+    if settings.llm_provider == "anthropic" and settings.anthropic_api_key:
+        logger.info(f"Analyst [{mode}] via Anthropic")
+        return _analyst_anthropic(system_prompt, user_message)
+
+    if settings.llm_provider == "ollama":
+        logger.info(f"Analyst [{mode}] via Ollama ({settings.ollama_model})")
+        return _analyst_ollama(system_prompt, user_message)
+
+    logger.info(f"Analyst [{mode}] via mock")
+    return _analyst_mock(mode, documents)
+
+
+def _analyst_mock(mode: str, documents: list[dict]) -> str:
+    doc_titles = ", ".join(d["title"] for d in documents)
+    label = _ANALYST_TITLES.get(mode, mode)
+    return (
+        f"## {label}: {doc_titles}\n\n"
+        f"*This is a mock result — connect Ollama or Anthropic to get a real analysis.*\n\n"
+        f"**Documents analyzed:** {len(documents)}\n"
+        + "\n".join(f"- {d['title']} ({len(d['content'])} chars)" for d in documents)
+    )
+
+
+def _analyst_ollama(system_prompt: str, user_message: str) -> str:
+    import httpx
+    payload = {
+        "model": settings.ollama_model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "stream": False,
+    }
+    try:
+        response = httpx.post(
+            f"{settings.ollama_url}/api/chat",
+            json=payload,
+            timeout=180.0,
+        )
+        response.raise_for_status()
+        return response.json()["message"]["content"]
+    except Exception as exc:
+        logger.error(f"Ollama analyst failed: {exc}")
+        return f"*Analysis failed: {exc}*"
+
+
+def _analyst_anthropic(system_prompt: str, user_message: str) -> str:
+    try:
+        import anthropic
+    except ImportError:
+        return "*anthropic package not installed*"
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=2048,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+    )
+    return response.content[0].text
