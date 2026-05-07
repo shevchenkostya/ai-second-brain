@@ -9,7 +9,7 @@ import type { AnalysisMode } from "@/lib/api";
 
 type ModeGroup = {
   group: string;
-  color: "indigo" | "violet";
+  color: "indigo" | "violet" | "emerald";
   items: { value: AnalysisMode; label: string; description: string }[];
 };
 
@@ -34,9 +34,19 @@ const MODE_GROUPS: ModeGroup[] = [
       { value: "system_design", label: "System Design", description: "Components, data flow, and boundaries" },
     ],
   },
+  {
+    group: "Reviewer",
+    color: "emerald",
+    items: [
+      { value: "code_review", label: "Code Review", description: "Bugs, issues, and improvement suggestions" },
+      { value: "doc_review", label: "Doc Review", description: "Clarity, completeness, audience fit" },
+      { value: "pr_summary", label: "PR Summary", description: "What changed, why, and how to test" },
+    ],
+  },
 ];
 
 const ARCHITECT_MODES = new Set<AnalysisMode>(["adr", "tech_radar", "risk_analysis", "system_design"]);
+const REVIEWER_MODES = new Set<AnalysisMode>(["code_review", "doc_review", "pr_summary"]);
 
 const LANGUAGES = [
   { value: "auto", label: "Auto" },
@@ -100,14 +110,31 @@ function ModeIcon({ mode }: { mode: AnalysisMode }) {
         <line x1="5" y1="10" x2="19" y2="10" /><line x1="8" y1="18" x2="13" y2="18" />
       </svg>
     ),
+    code_review: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
+      </svg>
+    ),
+    doc_review: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+      </svg>
+    ),
+    pr_summary: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="18" cy="18" r="3" /><circle cx="6" cy="6" r="3" />
+        <path d="M13 6h3a2 2 0 0 1 2 2v7" /><line x1="6" y1="9" x2="6" y2="21" />
+      </svg>
+    ),
   };
   return <>{icons[mode] ?? null}</>;
 }
 
 function modeBadgeColor(mode: AnalysisMode) {
-  return ARCHITECT_MODES.has(mode)
-    ? "bg-violet-100 text-violet-600"
-    : "bg-indigo-100 text-indigo-600";
+  if (ARCHITECT_MODES.has(mode)) return "bg-violet-100 text-violet-600";
+  if (REVIEWER_MODES.has(mode)) return "bg-emerald-100 text-emerald-600";
+  return "bg-indigo-100 text-indigo-600";
 }
 
 function timeAgo(iso: string) {
@@ -253,18 +280,22 @@ export default function ArtifactsPage() {
             {MODE_GROUPS.map((group) => (
               <div key={group.group}>
                 <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${
-                  group.color === "violet" ? "text-violet-500" : "text-indigo-500"
+                  group.color === "violet" ? "text-violet-500"
+                  : group.color === "emerald" ? "text-emerald-500"
+                  : "text-indigo-500"
                 }`}>
                   {group.group}
                 </p>
                 <div className="space-y-1.5">
                   {group.items.map((m) => {
                     const active = mode === m.value;
-                    const activeClass = group.color === "violet"
-                      ? "border-violet-400 bg-violet-50 text-violet-700"
+                    const activeClass =
+                      group.color === "violet" ? "border-violet-400 bg-violet-50 text-violet-700"
+                      : group.color === "emerald" ? "border-emerald-400 bg-emerald-50 text-emerald-700"
                       : "border-indigo-400 bg-indigo-50 text-indigo-700";
-                    const iconClass = group.color === "violet"
-                      ? (active ? "text-violet-600" : "text-gray-400")
+                    const iconClass =
+                      group.color === "violet" ? (active ? "text-violet-600" : "text-gray-400")
+                      : group.color === "emerald" ? (active ? "text-emerald-600" : "text-gray-400")
                       : (active ? "text-indigo-600" : "text-gray-400");
                     return (
                       <button

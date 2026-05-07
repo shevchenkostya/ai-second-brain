@@ -236,6 +236,42 @@ _ANALYST_SYSTEM_PROMPTS: dict[str, str] = {
         "Be precise and concise. "
         "Base your design ONLY on the provided content — do not invent components or requirements."
     ),
+    # ── Reviewer modes ────────────────────────────────────────────────────────
+    "code_review": (
+        "You are an expert code reviewer with deep knowledge of software engineering best practices. "
+        "Review the code or technical content in the provided document(s). "
+        "Structure your review as follows:\n"
+        "## Summary\n(overall assessment in 2-3 sentences)\n"
+        "## Critical Issues\n(bugs, security vulnerabilities, data loss risks — must fix)\n"
+        "## Improvements\n(performance, readability, maintainability — should fix)\n"
+        "## Suggestions\n(style, naming, minor refactors — nice to have)\n"
+        "## Positives\n(what is done well)\n"
+        "For each issue: describe the problem, explain the impact, and suggest a concrete fix. "
+        "Be direct and constructive. Base your review ONLY on the provided content."
+    ),
+    "doc_review": (
+        "You are an expert technical writer and documentation reviewer. "
+        "Review the document(s) for quality, clarity, and completeness. "
+        "Structure your review as follows:\n"
+        "## Overall Assessment\n(quality rating: Excellent / Good / Needs Work / Poor, with 2-3 sentence rationale)\n"
+        "## Strengths\n(what is clear, well-structured, or particularly useful)\n"
+        "## Issues Found\n(ambiguities, missing information, incorrect statements, poor structure)\n"
+        "## Recommendations\n(concrete, actionable improvements)\n"
+        "## Audience Fit\n(is the document appropriate for its intended audience?)\n"
+        "Be specific — quote or reference the problematic parts directly. "
+        "Base your review ONLY on the provided content."
+    ),
+    "pr_summary": (
+        "You are a senior engineer writing a pull request description. "
+        "Based on the provided document(s) (which may be code diffs, change logs, or technical notes), "
+        "produce a clear PR summary in markdown with this structure:\n"
+        "## What changed\n(bullet list of the main changes, grouped by area)\n"
+        "## Why\n(motivation, problem being solved, or business reason)\n"
+        "## How to test\n(specific steps to verify the changes work correctly)\n"
+        "## Notes for reviewers\n(edge cases, known limitations, areas needing extra attention)\n"
+        "Keep it concise and useful for a code reviewer. "
+        "Base the summary ONLY on the provided content."
+    ),
 }
 
 _ANALYST_TITLES: dict[str, str] = {
@@ -247,6 +283,9 @@ _ANALYST_TITLES: dict[str, str] = {
     "tech_radar": "Tech Radar",
     "risk_analysis": "Risk Analysis",
     "system_design": "System Design",
+    "code_review": "Code Review",
+    "doc_review": "Document Review",
+    "pr_summary": "PR Summary",
 }
 
 

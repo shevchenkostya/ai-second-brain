@@ -193,3 +193,23 @@ async def test_adr_title_auto_generated(client):
     title = response.json()["title"]
     assert "Architecture Decision Record" in title
     assert "Design Doc" in title
+
+
+# ── Reviewer modes ────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode,expected_title_fragment", [
+    ("code_review", "Code Review"),
+    ("doc_review", "Document Review"),
+    ("pr_summary", "PR Summary"),
+])
+async def test_reviewer_modes_return_artifact(client, mode, expected_title_fragment):
+    with patch("services.analyst._load_document_content", new=AsyncMock(return_value=_fake_doc_content())), \
+         patch("services.analyst.generate_analysis", return_value=f"## {expected_title_fragment}\nContent."):
+        response = await client.post("/api/artifacts/analyze", json=_make_analyze_body(mode=mode))
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["artifact_type"] == mode
+    assert expected_title_fragment in data["title"]
+    assert data["content"] == f"## {expected_title_fragment}\nContent."

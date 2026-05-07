@@ -14,6 +14,9 @@ const MODE_LABELS: Record<AnalysisMode, string> = {
   tech_radar: "Tech Radar",
   risk_analysis: "Risk Analysis",
   system_design: "System Design",
+  code_review: "Code Review",
+  doc_review: "Document Review",
+  pr_summary: "PR Summary",
 };
 
 function MarkdownContent({ content }: { content: string }) {

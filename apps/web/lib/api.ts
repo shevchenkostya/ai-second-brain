@@ -114,7 +114,8 @@ export async function sendMessage(chatId: string, query: string, language = "aut
 
 export type AnalysisMode =
   | "summarize" | "compare" | "extract_decisions" | "find_contradictions"
-  | "adr" | "tech_radar" | "risk_analysis" | "system_design";
+  | "adr" | "tech_radar" | "risk_analysis" | "system_design"
+  | "code_review" | "doc_review" | "pr_summary";
 
 export interface Artifact {
   id: string;

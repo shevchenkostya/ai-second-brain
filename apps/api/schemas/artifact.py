@@ -8,6 +8,8 @@ AnalysisMode = Literal[
     "summarize", "compare", "extract_decisions", "find_contradictions",
     # Architect modes
     "adr", "tech_radar", "risk_analysis", "system_design",
+    # Reviewer modes
+    "code_review", "doc_review", "pr_summary",
 ]
 
 
