@@ -160,3 +160,36 @@ async def test_delete_artifact(client):
 async def test_delete_artifact_not_found(client):
     response = await client.delete(f"/api/artifacts/{uuid.uuid4()}")
     assert response.status_code == 404
+
+
+# ── Architect modes ───────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode,expected_title_fragment", [
+    ("adr", "Architecture Decision Record"),
+    ("tech_radar", "Tech Radar"),
+    ("risk_analysis", "Risk Analysis"),
+    ("system_design", "System Design"),
+])
+async def test_architect_modes_return_artifact(client, mode, expected_title_fragment):
+    with patch("services.analyst._load_document_content", new=AsyncMock(return_value=_fake_doc_content())), \
+         patch("services.analyst.generate_analysis", return_value=f"## {expected_title_fragment}\nContent here."):
+        response = await client.post("/api/artifacts/analyze", json=_make_analyze_body(mode=mode))
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["artifact_type"] == mode
+    assert expected_title_fragment in data["title"]
+    assert data["content"] == f"## {expected_title_fragment}\nContent here."
+
+
+@pytest.mark.asyncio
+async def test_adr_title_auto_generated(client):
+    with patch("services.analyst._load_document_content", new=AsyncMock(return_value=_fake_doc_content("Design Doc"))), \
+         patch("services.analyst.generate_analysis", return_value="## ADR\n..."):
+        response = await client.post("/api/artifacts/analyze", json=_make_analyze_body(mode="adr"))
+
+    assert response.status_code == 201
+    title = response.json()["title"]
+    assert "Architecture Decision Record" in title
+    assert "Design Doc" in title

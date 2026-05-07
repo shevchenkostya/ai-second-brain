@@ -7,12 +7,36 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchDocuments } from "@/lib/api";
 import type { AnalysisMode } from "@/lib/api";
 
-const MODES: { value: AnalysisMode; label: string; description: string }[] = [
-  { value: "summarize", label: "Summarize", description: "Structured summary of key concepts" },
-  { value: "compare", label: "Compare", description: "Side-by-side comparison of documents" },
-  { value: "extract_decisions", label: "Extract Decisions", description: "Action items, decisions, commitments" },
-  { value: "find_contradictions", label: "Find Contradictions", description: "Conflicts and inconsistencies" },
+type ModeGroup = {
+  group: string;
+  color: "indigo" | "violet";
+  items: { value: AnalysisMode; label: string; description: string }[];
+};
+
+const MODE_GROUPS: ModeGroup[] = [
+  {
+    group: "Analyst",
+    color: "indigo",
+    items: [
+      { value: "summarize", label: "Summarize", description: "Structured summary of key concepts" },
+      { value: "compare", label: "Compare", description: "Side-by-side comparison of documents" },
+      { value: "extract_decisions", label: "Extract Decisions", description: "Action items and commitments" },
+      { value: "find_contradictions", label: "Find Contradictions", description: "Conflicts and inconsistencies" },
+    ],
+  },
+  {
+    group: "Architect",
+    color: "violet",
+    items: [
+      { value: "adr", label: "ADR", description: "Architecture Decision Record" },
+      { value: "tech_radar", label: "Tech Radar", description: "Technology assessment by quadrant" },
+      { value: "risk_analysis", label: "Risk Analysis", description: "Critical, high, medium, low risks" },
+      { value: "system_design", label: "System Design", description: "Components, data flow, and boundaries" },
+    ],
+  },
 ];
+
+const ARCHITECT_MODES = new Set<AnalysisMode>(["adr", "tech_radar", "risk_analysis", "system_design"]);
 
 const LANGUAGES = [
   { value: "auto", label: "Auto" },
@@ -26,31 +50,64 @@ const LANGUAGES = [
 function ModeIcon({ mode }: { mode: AnalysisMode }) {
   const icons: Record<AnalysisMode, React.ReactNode> = {
     summarize: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
         <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
       </svg>
     ),
     compare: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="18 15 21 18 18 21" /><polyline points="6 9 3 6 6 3" />
         <line x1="3" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="21" y2="6" />
       </svg>
     ),
     extract_decisions: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="9 11 12 14 22 4" />
         <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
       </svg>
     ),
     find_contradictions: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10" />
         <line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
       </svg>
     ),
+    adr: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" />
+      </svg>
+    ),
+    tech_radar: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="2" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="2" x2="12" y2="4" />
+      </svg>
+    ),
+    risk_analysis: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    ),
+    system_design: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="6" height="4" rx="1" /><rect x="9" y="3" width="6" height="4" rx="1" /><rect x="16" y="3" width="6" height="4" rx="1" />
+        <rect x="5" y="14" width="6" height="4" rx="1" /><rect x="13" y="14" width="6" height="4" rx="1" />
+        <line x1="5" y1="7" x2="5" y2="10" /><line x1="12" y1="7" x2="12" y2="14" /><line x1="19" y1="7" x2="19" y2="10" />
+        <line x1="5" y1="10" x2="19" y2="10" /><line x1="8" y1="18" x2="13" y2="18" />
+      </svg>
+    ),
   };
-  return <>{icons[mode]}</>;
+  return <>{icons[mode] ?? null}</>;
+}
+
+function modeBadgeColor(mode: AnalysisMode) {
+  return ARCHITECT_MODES.has(mode)
+    ? "bg-violet-100 text-violet-600"
+    : "bg-indigo-100 text-indigo-600";
 }
 
 function timeAgo(iso: string) {
@@ -65,12 +122,8 @@ function timeAgo(iso: string) {
 
 export default function ArtifactsPage() {
   const { data: artifacts = [], isLoading: artifactsLoading } = useArtifacts();
-  const { data: docResponse } = useQuery({
-    queryKey: ["documents"],
-    queryFn: fetchDocuments,
-  });
-  const documents = docResponse?.items ?? [];
-  const indexedDocs = documents.filter((d) => d.status === "indexed");
+  const { data: docResponse } = useQuery({ queryKey: ["documents"], queryFn: fetchDocuments });
+  const indexedDocs = (docResponse?.items ?? []).filter((d) => d.status === "indexed");
 
   const analyzeMutation = useAnalyze();
   const deleteMutation = useDeleteArtifact();
@@ -82,9 +135,7 @@ export default function ArtifactsPage() {
   const [formOpen, setFormOpen] = useState(false);
 
   function toggleDoc(id: string) {
-    setSelectedDocs((prev) =>
-      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
-    );
+    setSelectedDocs((prev) => prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]);
   }
 
   async function handleAnalyze() {
@@ -108,7 +159,7 @@ export default function ArtifactsPage() {
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
           <div>
             <h1 className="text-lg font-semibold text-gray-900">Artifacts</h1>
-            <p className="text-sm text-gray-500 mt-0.5">AI-generated analyses of your documents</p>
+            <p className="text-sm text-gray-500 mt-0.5">AI-generated analyses and architecture docs</p>
           </div>
           <button
             onClick={() => setFormOpen((v) => !v)}
@@ -146,7 +197,7 @@ export default function ArtifactsPage() {
                   href={`/artifacts/${artifact.id}`}
                   className="group flex items-start gap-4 p-4 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/40 transition-all"
                 >
-                  <div className="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${modeBadgeColor(artifact.artifact_type)}`}>
                     <ModeIcon mode={artifact.artifact_type} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -190,10 +241,7 @@ export default function ArtifactsPage() {
         <div className="w-80 shrink-0 border-l border-gray-200 flex flex-col overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900">New analysis</h2>
-            <button
-              onClick={() => setFormOpen(false)}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
+            <button onClick={() => setFormOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
@@ -201,42 +249,53 @@ export default function ArtifactsPage() {
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-            {/* Mode */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-2">Analysis type</label>
-              <div className="space-y-1.5">
-                {MODES.map((m) => (
-                  <button
-                    key={m.value}
-                    onClick={() => setMode(m.value)}
-                    className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg border text-left transition-all ${
-                      mode === m.value
-                        ? "border-indigo-400 bg-indigo-50 text-indigo-700"
-                        : "border-gray-200 hover:border-gray-300 text-gray-700"
-                    }`}
-                  >
-                    <span className={`mt-0.5 ${mode === m.value ? "text-indigo-600" : "text-gray-400"}`}>
-                      <ModeIcon mode={m.value} />
-                    </span>
-                    <div>
-                      <p className="text-xs font-medium">{m.label}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{m.description}</p>
-                    </div>
-                  </button>
-                ))}
+            {/* Mode groups */}
+            {MODE_GROUPS.map((group) => (
+              <div key={group.group}>
+                <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${
+                  group.color === "violet" ? "text-violet-500" : "text-indigo-500"
+                }`}>
+                  {group.group}
+                </p>
+                <div className="space-y-1.5">
+                  {group.items.map((m) => {
+                    const active = mode === m.value;
+                    const activeClass = group.color === "violet"
+                      ? "border-violet-400 bg-violet-50 text-violet-700"
+                      : "border-indigo-400 bg-indigo-50 text-indigo-700";
+                    const iconClass = group.color === "violet"
+                      ? (active ? "text-violet-600" : "text-gray-400")
+                      : (active ? "text-indigo-600" : "text-gray-400");
+                    return (
+                      <button
+                        key={m.value}
+                        onClick={() => setMode(m.value)}
+                        className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg border text-left transition-all ${
+                          active ? activeClass : "border-gray-200 hover:border-gray-300 text-gray-700"
+                        }`}
+                      >
+                        <span className={`mt-0.5 shrink-0 ${iconClass}`}>
+                          <ModeIcon mode={m.value} />
+                        </span>
+                        <div>
+                          <p className="text-xs font-medium">{m.label}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{m.description}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ))}
 
             {/* Documents */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-2">
                 Documents{" "}
-                <span className="font-normal text-gray-400">
-                  ({selectedDocs.length} selected)
-                </span>
+                <span className="font-normal text-gray-400">({selectedDocs.length} selected)</span>
               </label>
               {indexedDocs.length === 0 ? (
-                <p className="text-xs text-gray-400 py-2">No indexed documents. Upload and index documents first.</p>
+                <p className="text-xs text-gray-400 py-2">No indexed documents. Upload documents first.</p>
               ) : (
                 <div className="space-y-1.5 max-h-48 overflow-y-auto">
                   {indexedDocs.map((doc) => {
@@ -245,9 +304,7 @@ export default function ArtifactsPage() {
                       <label
                         key={doc.id}
                         className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-all ${
-                          checked
-                            ? "border-indigo-300 bg-indigo-50"
-                            : "border-gray-200 hover:border-gray-300"
+                          checked ? "border-indigo-300 bg-indigo-50" : "border-gray-200 hover:border-gray-300"
                         }`}
                       >
                         <input

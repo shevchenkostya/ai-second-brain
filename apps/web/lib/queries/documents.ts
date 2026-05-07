@@ -4,10 +4,16 @@ import { fetchDocuments, uploadDocument, deleteDocument } from "@/lib/api";
 export const DOCUMENTS_KEY = ["documents"] as const;
 
 export function useDocuments() {
-  return useQuery({
+  const result = useQuery({
     queryKey: DOCUMENTS_KEY,
     queryFn: fetchDocuments,
+    refetchInterval: (query) => {
+      const items = query.state.data?.items ?? [];
+      const hasActive = items.some((d) => d.status === "queued" || d.status === "processing");
+      return hasActive ? 3000 : false;
+    },
   });
+  return result;
 }
 
 export function useUploadDocument() {

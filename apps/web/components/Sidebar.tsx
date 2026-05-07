@@ -3,16 +3,22 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useChats, useCreateChat, useDeleteChat } from "@/lib/queries/chats";
+import { useDocuments } from "@/lib/queries/documents";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { data: chats = [] } = useChats();
+  const { data: docResponse } = useDocuments();
   const createMutation = useCreateChat();
   const deleteMutation = useDeleteChat();
 
   const isOnDocuments = pathname.startsWith("/documents");
   const isOnArtifacts = pathname.startsWith("/artifacts");
+
+  const activeJobs = (docResponse?.items ?? []).filter(
+    (d) => d.status === "queued" || d.status === "processing"
+  ).length;
 
   async function handleNewChat() {
     const chat = await createMutation.mutateAsync(undefined);
@@ -110,6 +116,12 @@ export default function Sidebar() {
             <polyline points="14 2 14 8 20 8" />
           </svg>
           Documents
+          {activeJobs > 0 && (
+            <span className="ml-auto flex items-center gap-1 text-xs text-amber-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              {activeJobs}
+            </span>
+          )}
         </Link>
         <Link
           href="/artifacts"

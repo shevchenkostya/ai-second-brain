@@ -3,7 +3,12 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict
 
 
-AnalysisMode = Literal["summarize", "compare", "extract_decisions", "find_contradictions"]
+AnalysisMode = Literal[
+    # Analyst modes
+    "summarize", "compare", "extract_decisions", "find_contradictions",
+    # Architect modes
+    "adr", "tech_radar", "risk_analysis", "system_design",
+]
 
 
 class AnalyzeIn(BaseModel):

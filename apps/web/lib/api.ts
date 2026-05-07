@@ -112,7 +112,9 @@ export async function sendMessage(chatId: string, query: string, language = "aut
 
 // ── Artifact types ────────────────────────────────────────────────────────────
 
-export type AnalysisMode = "summarize" | "compare" | "extract_decisions" | "find_contradictions";
+export type AnalysisMode =
+  | "summarize" | "compare" | "extract_decisions" | "find_contradictions"
+  | "adr" | "tech_radar" | "risk_analysis" | "system_design";
 
 export interface Artifact {
   id: string;

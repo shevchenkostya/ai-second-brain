@@ -10,6 +10,10 @@ const MODE_LABELS: Record<AnalysisMode, string> = {
   compare: "Comparison",
   extract_decisions: "Decision Extraction",
   find_contradictions: "Contradiction Analysis",
+  adr: "Architecture Decision Record",
+  tech_radar: "Tech Radar",
+  risk_analysis: "Risk Analysis",
+  system_design: "System Design",
 };
 
 function MarkdownContent({ content }: { content: string }) {
