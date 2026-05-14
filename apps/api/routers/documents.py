@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
+from models.user import User
 from schemas.document import DocumentOut, DocumentListOut, ChunkOut
+from services.auth import get_current_user
 from services.document import (
     upload_document, list_documents, get_document,
     get_document_chunks, reindex_document, delete_document,
@@ -16,22 +18,34 @@ ALLOWED_EXTENSIONS = {"md", "txt", "pdf", "docx", "json", "yaml", "html"}
 
 
 @router.post("/upload", response_model=DocumentOut, status_code=201)
-async def upload(request: Request, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+async def upload(
+    request: Request,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     ext = (file.filename or "").rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: .{ext}")
-    document = await upload_document(file, db, request.app.state.arq_pool)
+    document = await upload_document(file, db, request.app.state.arq_pool, user_id=current_user.id)
     return document
 
 
 @router.get("", response_model=DocumentListOut)
-async def list_docs(db: AsyncSession = Depends(get_db)):
-    documents, total = await list_documents(db)
+async def list_docs(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    documents, total = await list_documents(db, user_id=current_user.id)
     return DocumentListOut(items=documents, total=total)
 
 
 @router.get("/{document_id}", response_model=DocumentOut)
-async def get_doc(document_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_doc(
+    document_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     document = await get_document(document_id, db)
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -39,7 +53,11 @@ async def get_doc(document_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{document_id}/chunks", response_model=list[ChunkOut])
-async def get_chunks(document_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_chunks(
+    document_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     document = await get_document(document_id, db)
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -48,7 +66,12 @@ async def get_chunks(document_id: uuid.UUID, db: AsyncSession = Depends(get_db))
 
 
 @router.post("/{document_id}/reindex", response_model=DocumentOut)
-async def reindex(document_id: uuid.UUID, request: Request, db: AsyncSession = Depends(get_db)):
+async def reindex(
+    document_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     document = await reindex_document(document_id, db, request.app.state.arq_pool)
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -56,7 +79,11 @@ async def reindex(document_id: uuid.UUID, request: Request, db: AsyncSession = D
 
 
 @router.delete("/{document_id}", status_code=204)
-async def delete_doc(document_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def delete_doc(
+    document_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     deleted = await delete_document(document_id, db)
     if not deleted:
         raise HTTPException(status_code=404, detail="Document not found")

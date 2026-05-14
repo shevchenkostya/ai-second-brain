@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Providers from "./providers";
 import Sidebar from "@/components/Sidebar";
+import AuthGuard from "@/components/AuthGuard";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
@@ -16,10 +17,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={inter.className}>
       <body className="h-screen bg-gray-50 overflow-hidden flex">
         <Providers>
-          <Sidebar />
-          <main className="flex-1 h-full overflow-auto min-w-0">
-            {children}
-          </main>
+          <AuthGuard>
+            <Sidebar />
+            <main className="flex-1 h-full overflow-auto min-w-0">
+              {children}
+            </main>
+          </AuthGuard>
         </Providers>
       </body>
     </html>

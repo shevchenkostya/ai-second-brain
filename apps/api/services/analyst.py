@@ -45,8 +45,9 @@ async def run_analysis(
     db: AsyncSession,
     language: str = "auto",
     custom_title: str | None = None,
+    user_id: uuid.UUID | None = None,
 ) -> Artifact:
-    workspace = await get_or_create_default_workspace(db)
+    workspace = await get_or_create_default_workspace(db, user_id)
 
     documents = []
     valid_doc_ids = []
@@ -89,9 +90,12 @@ async def run_analysis(
     return artifact
 
 
-async def list_artifacts(db: AsyncSession) -> list[Artifact]:
+async def list_artifacts(db: AsyncSession, user_id: uuid.UUID | None = None) -> list[Artifact]:
+    workspace = await get_or_create_default_workspace(db, user_id)
     result = await db.execute(
-        select(Artifact).order_by(Artifact.created_at.desc())
+        select(Artifact)
+        .where(Artifact.workspace_id == workspace.id)
+        .order_by(Artifact.created_at.desc())
     )
     return list(result.scalars().all())
 

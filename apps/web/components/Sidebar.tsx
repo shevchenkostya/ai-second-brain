@@ -2,16 +2,33 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useChats, useCreateChat, useDeleteChat } from "@/lib/queries/chats";
 import { useDocuments } from "@/lib/queries/documents";
+import { getMe, logout, getToken } from "@/lib/api";
+
+const PUBLIC_PATHS = ["/login", "/register"];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: chats = [] } = useChats();
   const { data: docResponse } = useDocuments();
   const createMutation = useCreateChat();
   const deleteMutation = useDeleteChat();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (PUBLIC_PATHS.includes(pathname)) return;
+    if (!getToken()) return;
+    getMe()
+      .then((u) => setUserEmail(u.email))
+      .catch(() => setUserEmail(null));
+  }, [pathname]);
+
+  if (PUBLIC_PATHS.includes(pathname)) return null;
 
   const isOnDocuments = pathname.startsWith("/documents");
   const isOnArtifacts = pathname.startsWith("/artifacts");
@@ -31,6 +48,11 @@ export default function Sidebar() {
     if (!confirm("Delete this chat?")) return;
     deleteMutation.mutate(id);
     if (pathname === `/chat/${id}`) router.push("/chat");
+  }
+
+  function handleLogout() {
+    queryClient.clear();
+    logout();
   }
 
   return (
@@ -136,6 +158,26 @@ export default function Sidebar() {
           </svg>
           Artifacts
         </Link>
+
+        {/* User info + logout */}
+        <div className="mt-2 pt-2 border-t border-white/10">
+          <div className="flex items-center justify-between px-3 py-2">
+            <span className="text-xs text-gray-500 truncate max-w-[140px]" title={userEmail ?? ""}>
+              {userEmail ?? ""}
+            </span>
+            <button
+              onClick={handleLogout}
+              className="text-gray-500 hover:text-red-400 transition-colors shrink-0 ml-2"
+              title="Sign out"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
     </aside>
   );

@@ -13,22 +13,35 @@ from models.workspace import Workspace
 UPLOAD_DIR = Path("/app/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-DEFAULT_WORKSPACE_NAME = "default"
 
-
-async def get_or_create_default_workspace(db: AsyncSession) -> Workspace:
-    result = await db.execute(select(Workspace).where(Workspace.name == DEFAULT_WORKSPACE_NAME))
+async def get_or_create_user_workspace(user_id: uuid.UUID, db: AsyncSession) -> Workspace:
+    result = await db.execute(select(Workspace).where(Workspace.user_id == user_id))
     workspace = result.scalar_one_or_none()
     if workspace is None:
-        workspace = Workspace(name=DEFAULT_WORKSPACE_NAME, description="Default workspace")
+        workspace = Workspace(user_id=user_id, name="My Workspace")
         db.add(workspace)
         await db.commit()
         await db.refresh(workspace)
     return workspace
 
 
-async def upload_document(file: UploadFile, db: AsyncSession, arq_pool) -> Document:
-    workspace = await get_or_create_default_workspace(db)
+# kept for backward-compat in analyst/chat services — resolves workspace by user_id
+async def get_or_create_default_workspace(db: AsyncSession, user_id: uuid.UUID | None = None) -> Workspace:
+    if user_id is not None:
+        return await get_or_create_user_workspace(user_id, db)
+    # fallback for tests (no auth)
+    result = await db.execute(select(Workspace).limit(1))
+    workspace = result.scalar_one_or_none()
+    if workspace is None:
+        workspace = Workspace(name="default")
+        db.add(workspace)
+        await db.commit()
+        await db.refresh(workspace)
+    return workspace
+
+
+async def upload_document(file: UploadFile, db: AsyncSession, arq_pool, user_id: uuid.UUID | None = None) -> Document:
+    workspace = await get_or_create_default_workspace(db, user_id)
 
     content = await file.read()
     checksum = hashlib.sha256(content).hexdigest()
@@ -79,10 +92,14 @@ async def reindex_document(document_id: uuid.UUID, db: AsyncSession, arq_pool) -
     return document
 
 
-async def list_documents(db: AsyncSession) -> tuple[list[Document], int]:
-    result = await db.execute(select(Document).order_by(Document.created_at.desc()))
+async def list_documents(db: AsyncSession, user_id: uuid.UUID | None = None) -> tuple[list[Document], int]:
+    workspace = await get_or_create_default_workspace(db, user_id)
+    stmt = select(Document).where(Document.workspace_id == workspace.id).order_by(Document.created_at.desc())
+    result = await db.execute(stmt)
     documents = list(result.scalars().all())
-    count_result = await db.execute(select(func.count()).select_from(Document))
+    count_result = await db.execute(
+        select(func.count()).select_from(Document).where(Document.workspace_id == workspace.id)
+    )
     total = count_result.scalar_one()
     return documents, total
 

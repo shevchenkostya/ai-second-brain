@@ -11,6 +11,7 @@ from config import settings
 from routers import health, documents
 from routers import chats
 from routers import artifacts
+from routers import auth
 
 
 def run_migrations() -> None:
@@ -37,6 +38,7 @@ app.add_middleware(
 
 app.include_router(health.router, tags=["health"])
 app.include_router(documents.router)
+app.include_router(auth.router)
 app.include_router(chats.router)
 app.include_router(artifacts.router)
 

@@ -1,5 +1,82 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? "http://localhost:4000";
 
+// ── Token management ──────────────────────────────────────────────────────────
+
+const TOKEN_KEY = "sb_token";
+
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+// ── Central fetch helper ──────────────────────────────────────────────────────
+
+async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const token = getToken();
+  const headers: Record<string, string> = { ...(options.headers as Record<string, string> ?? {}) };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(url, { ...options, headers });
+
+  if (res.status === 401) {
+    clearToken();
+    if (typeof window !== "undefined") window.location.href = "/login";
+  }
+
+  return res;
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export async function register(email: string, password: string): Promise<{ access_token: string }> {
+  const res = await fetch(`${API_URL}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Registration failed");
+  }
+  return res.json();
+}
+
+export async function login(email: string, password: string): Promise<{ access_token: string }> {
+  const res = await fetch(`${API_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Invalid email or password");
+  }
+  return res.json();
+}
+
+export function logout(): void {
+  clearToken();
+  if (typeof window !== "undefined") window.location.href = "/login";
+}
+
+export async function getMe(): Promise<{ id: string; email: string }> {
+  const res = await apiFetch(`${API_URL}/api/auth/me`);
+  if (!res.ok) throw new Error("Not authenticated");
+  return res.json();
+}
+
+// ── Document types ────────────────────────────────────────────────────────────
+
 export interface Document {
   id: string;
   workspace_id: string;
@@ -16,8 +93,10 @@ export interface DocumentListResponse {
   total: number;
 }
 
+// ── Document API ──────────────────────────────────────────────────────────────
+
 export async function fetchDocuments(): Promise<DocumentListResponse> {
-  const res = await fetch(`${API_URL}/api/documents`, { cache: "no-store" });
+  const res = await apiFetch(`${API_URL}/api/documents`);
   if (!res.ok) throw new Error("Failed to fetch documents");
   return res.json();
 }
@@ -25,10 +104,7 @@ export async function fetchDocuments(): Promise<DocumentListResponse> {
 export async function uploadDocument(file: File): Promise<Document> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${API_URL}/api/documents/upload`, {
-    method: "POST",
-    body: form,
-  });
+  const res = await apiFetch(`${API_URL}/api/documents/upload`, { method: "POST", body: form });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail ?? "Upload failed");
@@ -37,7 +113,7 @@ export async function uploadDocument(file: File): Promise<Document> {
 }
 
 export async function deleteDocument(id: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/documents/${id}`, { method: "DELETE" });
+  const res = await apiFetch(`${API_URL}/api/documents/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete document");
 }
 
@@ -71,19 +147,19 @@ export interface Chat {
 // ── Chat API ──────────────────────────────────────────────────────────────────
 
 export async function fetchChats(): Promise<Chat[]> {
-  const res = await fetch(`${API_URL}/api/chats`, { cache: "no-store" });
+  const res = await apiFetch(`${API_URL}/api/chats`);
   if (!res.ok) throw new Error("Failed to fetch chats");
   return res.json();
 }
 
 export async function fetchChat(id: string): Promise<Chat> {
-  const res = await fetch(`${API_URL}/api/chats/${id}`, { cache: "no-store" });
+  const res = await apiFetch(`${API_URL}/api/chats/${id}`);
   if (!res.ok) throw new Error("Chat not found");
   return res.json();
 }
 
 export async function createChat(title?: string): Promise<Chat> {
-  const res = await fetch(`${API_URL}/api/chats`, {
+  const res = await apiFetch(`${API_URL}/api/chats`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title: title ?? null }),
@@ -93,12 +169,12 @@ export async function createChat(title?: string): Promise<Chat> {
 }
 
 export async function deleteChat(id: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/chats/${id}`, { method: "DELETE" });
+  const res = await apiFetch(`${API_URL}/api/chats/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete chat");
 }
 
 export async function sendMessage(chatId: string, query: string, language = "auto"): Promise<Message> {
-  const res = await fetch(`${API_URL}/api/chats/${chatId}/messages`, {
+  const res = await apiFetch(`${API_URL}/api/chats/${chatId}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, language }),
@@ -136,19 +212,19 @@ export interface AnalyzeRequest {
 // ── Artifact API ──────────────────────────────────────────────────────────────
 
 export async function fetchArtifacts(): Promise<Artifact[]> {
-  const res = await fetch(`${API_URL}/api/artifacts`, { cache: "no-store" });
+  const res = await apiFetch(`${API_URL}/api/artifacts`);
   if (!res.ok) throw new Error("Failed to fetch artifacts");
   return res.json();
 }
 
 export async function fetchArtifact(id: string): Promise<Artifact> {
-  const res = await fetch(`${API_URL}/api/artifacts/${id}`, { cache: "no-store" });
+  const res = await apiFetch(`${API_URL}/api/artifacts/${id}`);
   if (!res.ok) throw new Error("Artifact not found");
   return res.json();
 }
 
 export async function analyzeDocuments(body: AnalyzeRequest): Promise<Artifact> {
-  const res = await fetch(`${API_URL}/api/artifacts/analyze`, {
+  const res = await apiFetch(`${API_URL}/api/artifacts/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -161,6 +237,6 @@ export async function analyzeDocuments(body: AnalyzeRequest): Promise<Artifact> 
 }
 
 export async function deleteArtifact(id: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/artifacts/${id}`, { method: "DELETE" });
+  const res = await apiFetch(`${API_URL}/api/artifacts/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete artifact");
 }

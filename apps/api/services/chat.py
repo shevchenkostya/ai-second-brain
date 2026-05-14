@@ -8,8 +8,8 @@ from services.retrieval import retrieve_chunks
 from services.llm import generate_answer
 
 
-async def create_chat(db: AsyncSession, title: str | None = None) -> Chat:
-    workspace = await get_or_create_default_workspace(db)
+async def create_chat(db: AsyncSession, title: str | None = None, user_id: uuid.UUID | None = None) -> Chat:
+    workspace = await get_or_create_default_workspace(db, user_id)
     chat = Chat(workspace_id=workspace.id, title=title)
     db.add(chat)
     await db.commit()
@@ -17,8 +17,12 @@ async def create_chat(db: AsyncSession, title: str | None = None) -> Chat:
     return chat
 
 
-async def list_chats(db: AsyncSession) -> list[Chat]:
-    result = await db.execute(select(Chat).order_by(Chat.created_at.desc()))
+async def list_chats(db: AsyncSession, user_id: uuid.UUID | None = None) -> list[Chat]:
+    from services.document import get_or_create_default_workspace
+    workspace = await get_or_create_default_workspace(db, user_id)
+    result = await db.execute(
+        select(Chat).where(Chat.workspace_id == workspace.id).order_by(Chat.created_at.desc())
+    )
     return list(result.scalars().all())
 
 

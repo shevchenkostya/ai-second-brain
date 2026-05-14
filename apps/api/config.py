@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     ollama_url: str = "http://host.docker.internal:11434"
     ollama_model: str = "llama3.2:3b"
 
+    # Auth
+    secret_key: str = "dev-secret-change-in-production"
+    access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+
     model_config = SettingsConfigDict(env_file=".env.local", extra="ignore")
 
 

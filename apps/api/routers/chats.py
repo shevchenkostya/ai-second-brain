@@ -4,15 +4,20 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
+from models.user import User
 from schemas.chat import ChatOut, ChatCreate, MessageOut, SendMessageIn
+from services.auth import get_current_user
 from services import chat as chat_service
 
 router = APIRouter(prefix="/api/chats", tags=["chats"])
 
 
 @router.get("", response_model=list[ChatOut])
-async def list_chats(db: AsyncSession = Depends(get_db)):
-    chats = await chat_service.list_chats(db)
+async def list_chats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    chats = await chat_service.list_chats(db, user_id=current_user.id)
     return [
         ChatOut(
             id=str(c.id),
@@ -25,8 +30,12 @@ async def list_chats(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("", response_model=ChatOut, status_code=status.HTTP_201_CREATED)
-async def create_chat(body: ChatCreate, db: AsyncSession = Depends(get_db)):
-    chat = await chat_service.create_chat(db, title=body.title)
+async def create_chat(
+    body: ChatCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    chat = await chat_service.create_chat(db, title=body.title, user_id=current_user.id)
     return ChatOut(
         id=str(chat.id),
         workspace_id=str(chat.workspace_id),
@@ -36,7 +45,11 @@ async def create_chat(body: ChatCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{chat_id}", response_model=ChatOut)
-async def get_chat(chat_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_chat(
+    chat_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     chat = await chat_service.get_chat(chat_id, db)
     if chat is None:
         raise HTTPException(status_code=404, detail="Chat not found")
@@ -51,7 +64,11 @@ async def get_chat(chat_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_chat(chat_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def delete_chat(
+    chat_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     deleted = await chat_service.delete_chat(chat_id, db)
     if not deleted:
         raise HTTPException(status_code=404, detail="Chat not found")
@@ -62,6 +79,7 @@ async def send_message(
     chat_id: uuid.UUID,
     body: SendMessageIn,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     chat = await chat_service.get_chat(chat_id, db)
     if chat is None:

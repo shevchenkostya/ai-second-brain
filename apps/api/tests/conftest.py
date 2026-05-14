@@ -10,6 +10,9 @@ from main import app
 # In-memory SQLite for tests — не нужен реальный Postgres
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
+_TEST_EMAIL = "test@example.com"
+_TEST_PASSWORD = "testpass123"
+
 
 @pytest_asyncio.fixture(scope="session")
 async def engine():
@@ -43,6 +46,11 @@ async def client(engine):
     app.state.arq_pool = AsyncMock()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # Register test user — ignore 400 if already exists from a prior test in this session
+        await ac.post("/api/auth/register", json={"email": _TEST_EMAIL, "password": _TEST_PASSWORD})
+        resp = await ac.post("/api/auth/login", json={"email": _TEST_EMAIL, "password": _TEST_PASSWORD})
+        token = resp.json()["access_token"]
+        ac.headers = {**ac.headers, "Authorization": f"Bearer {token}"}
         yield ac
 
     app.dependency_overrides.clear()
