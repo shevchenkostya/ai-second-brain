@@ -23,7 +23,26 @@ class Settings(BaseSettings):
 
     # Auth
     secret_key: str = "dev-secret-change-in-production"
-    access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 30
+    email_token_expire_hours: int = 24
+
+    # Email (SMTP)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    from_email: str = "noreply@localhost"
+    frontend_url: str = "http://localhost:3000"
+
+    # First admin bootstrap (created on startup if no admin exists)
+    first_admin_email: str = ""
+    first_admin_password: str = ""
+
+    # MCP — Google Drive
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://localhost:4000/api/mcp/google/callback"
 
     model_config = SettingsConfigDict(env_file=".env.local", extra="ignore")
 

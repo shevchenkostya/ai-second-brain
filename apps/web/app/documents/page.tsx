@@ -1,8 +1,16 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useDocuments, useUploadDocument, useDeleteDocument } from "@/lib/queries/documents";
+import {
+  useGoogleDriveStatus,
+  useGoogleDriveSources,
+  useConnectGoogleDrive,
+  useIngestGoogleDriveFile,
+} from "@/lib/queries/mcp";
 import { useUIStore } from "@/store/ui";
+import type { MCPSource } from "@/lib/api";
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string }> = {
   uploaded:   { label: "Uploaded",   dot: "bg-blue-400",   text: "text-blue-600" },
@@ -40,12 +48,126 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+// ── Google Drive modal ────────────────────────────────────────────────────────
+
+function GoogleDriveModal({ onClose }: { onClose: () => void }) {
+  const { data, isLoading, isError } = useGoogleDriveSources(true);
+  const ingestMutation = useIngestGoogleDriveFile();
+  const { addNotification } = useUIStore();
+  const [ingesting, setIngesting] = useState<Set<string>>(new Set());
+
+  async function handleIngest(source: MCPSource) {
+    setIngesting((prev) => new Set(prev).add(source.id));
+    try {
+      await ingestMutation.mutateAsync(source.id);
+      addNotification("success", `"${source.name}" queued for indexing`);
+    } catch (err: unknown) {
+      addNotification("error", err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setIngesting((prev) => {
+        const next = new Set(prev);
+        next.delete(source.id);
+        return next;
+      });
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8.5 2L2 14h5l1.5-3h7L17 14h5L14.5 2h-6z" fill="#4285F4" />
+              <path d="M2 14l5 8h10l-5-8H2z" fill="#0F9D58" />
+              <path d="M17 14l5-8h-6l-5 8h6z" fill="#FBBC05" />
+            </svg>
+            <h2 className="text-sm font-semibold text-gray-900">Import from Google Drive</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-4 max-h-96 overflow-y-auto">
+          {isLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : isError ? (
+            <p className="text-sm text-red-500 text-center py-8">Failed to load files from Google Drive</p>
+          ) : !data?.sources.length ? (
+            <p className="text-sm text-gray-400 text-center py-8">No supported files found in your Drive</p>
+          ) : (
+            <div className="space-y-1.5">
+              {data.sources.map((source) => (
+                <div
+                  key={source.id}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-all"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{source.name}</p>
+                    {source.modified_at && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {new Date(source.modified_at).toLocaleDateString("en-GB", {
+                          day: "numeric", month: "short", year: "numeric",
+                        })}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleIngest(source)}
+                    disabled={ingesting.has(source.id)}
+                    className="shrink-0 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {ingesting.has(source.id) ? "Importing…" : "Import"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 py-3 border-t border-gray-100">
+          <p className="text-xs text-gray-400">Supported: Docs, PDFs, DOCX, TXT, MD and more</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function DocumentsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchParams = useSearchParams();
+
   const { data, isLoading, isError } = useDocuments();
   const uploadMutation = useUploadDocument();
   const deleteMutation = useDeleteDocument();
   const { uploading, setUploading, notifications, addNotification } = useUIStore();
+
+  const { data: driveStatus, refetch: refetchStatus } = useGoogleDriveStatus();
+  const connectMutation = useConnectGoogleDrive();
+  const [showDriveModal, setShowDriveModal] = useState(false);
+
+  // Detect return from Google OAuth callback
+  useEffect(() => {
+    if (searchParams.get("mcp") === "connected") {
+      refetchStatus();
+      addNotification("success", "Google Drive connected");
+      window.history.replaceState({}, "", "/documents");
+    }
+  }, [searchParams, refetchStatus, addNotification]);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -72,11 +194,21 @@ export default function DocumentsPage() {
     }
   }
 
+  function handleDriveClick() {
+    if (driveStatus?.connected) {
+      setShowDriveModal(true);
+    } else {
+      connectMutation.mutate();
+    }
+  }
+
   const documents = data?.items ?? [];
   const total = data?.total ?? 0;
 
   return (
     <div className="h-full flex flex-col">
+      {showDriveModal && <GoogleDriveModal onClose={() => setShowDriveModal(false)} />}
+
       {/* Notifications */}
       {notifications.length > 0 && (
         <div className="fixed top-4 right-4 space-y-2 z-50">
@@ -103,7 +235,27 @@ export default function DocumentsPage() {
             {total} document{total !== 1 ? "s" : ""} in your knowledge base
           </p>
         </div>
-        <div>
+        <div className="flex items-center gap-2">
+          {/* Google Drive import */}
+          <button
+            onClick={handleDriveClick}
+            disabled={connectMutation.isPending}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-200 hover:border-gray-300 bg-white text-gray-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            title={driveStatus?.connected ? "Import from Google Drive" : "Connect Google Drive"}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8.5 2L2 14h5l1.5-3h7L17 14h5L14.5 2h-6z" fill="#4285F4" />
+              <path d="M2 14l5 8h10l-5-8H2z" fill="#0F9D58" />
+              <path d="M17 14l5-8h-6l-5 8h6z" fill="#FBBC05" />
+            </svg>
+            {connectMutation.isPending
+              ? "Connecting…"
+              : driveStatus?.connected
+              ? "Google Drive"
+              : "Connect Drive"}
+          </button>
+
+          {/* File upload */}
           <input
             ref={fileInputRef}
             type="file"
@@ -145,7 +297,7 @@ export default function DocumentsPage() {
               </svg>
             </div>
             <p className="text-gray-500 font-medium">No documents yet</p>
-            <p className="text-gray-400 text-sm mt-1">Upload a .md, .pdf, .docx, or .txt file to get started</p>
+            <p className="text-gray-400 text-sm mt-1">Upload a file or import from Google Drive</p>
           </div>
         ) : (
           <div className="space-y-2">

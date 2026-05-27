@@ -1,0 +1,20 @@
+{$DOMAIN} {
+    # API — все запросы /api/* проксируются на FastAPI
+    handle /api/* {
+        reverse_proxy api:4000
+    }
+
+    # Frontend — всё остальное на Next.js
+    handle {
+        reverse_proxy web:3000
+    }
+
+    # Сжатие ответов
+    encode gzip
+
+    # Логи
+    log {
+        output stdout
+        format console
+    }
+}

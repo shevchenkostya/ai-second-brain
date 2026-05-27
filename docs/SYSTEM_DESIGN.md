@@ -126,6 +126,51 @@ source_refs_json JSON         -- [document_id, ...]
 created_at      TIMESTAMPTZ
 ```
 
+### users (расширено в Sprint 9)
+```
+id                UUID PK
+email             VARCHAR(255) UNIQUE
+password_hash     VARCHAR(255)   -- bcrypt
+role              VARCHAR(20)    -- 'user' | 'admin'
+is_active         BOOLEAN        -- false = заблокирован
+email_verified    BOOLEAN
+email_verified_at TIMESTAMPTZ
+created_at        TIMESTAMPTZ
+```
+
+### refresh_tokens
+```
+id          UUID PK
+user_id     UUID FK → users (CASCADE)
+token_hash  VARCHAR(64) UNIQUE  -- SHA-256 от raw токена, не сам токен
+expires_at  TIMESTAMPTZ
+revoked     BOOLEAN             -- true после использования (rotation)
+created_at  TIMESTAMPTZ
+```
+
+### email_tokens
+```
+id          UUID PK
+user_id     UUID FK → users (CASCADE)
+token_hash  VARCHAR(64) UNIQUE
+type        VARCHAR(30)   -- 'verify_email' | 'reset_password'
+expires_at  TIMESTAMPTZ
+used_at     TIMESTAMPTZ   -- NULL = не использован
+created_at  TIMESTAMPTZ
+```
+
+### mcp_tokens
+```
+id            UUID PK
+user_id       UUID FK → users (CASCADE)
+provider      VARCHAR(50)  -- 'google_drive'
+access_token  TEXT
+refresh_token TEXT
+expires_at    TIMESTAMPTZ
+created_at / updated_at TIMESTAMPTZ
+UNIQUE(user_id, provider)
+```
+
 ### jobs / automations (зарезервированы в миграции, не используются в MVP)
 ```
 jobs:
@@ -139,7 +184,59 @@ automations:
 
 ---
 
-## 4. Ключевые потоки данных
+---
+
+## 4. Система авторизации (Sprint 9)
+
+### Схема токенов
+
+```
+Регистрация / Логин
+  → access_token  (15 мин, JWT, подписан SECRET_KEY)
+  → refresh_token (30 дней, random bytes, хранится как SHA-256 хэш в БД)
+  Оба хранятся в localStorage на клиенте
+
+Каждый API-запрос:
+  Authorization: Bearer <access_token>
+
+access_token истёк (401):
+  Frontend → POST /api/auth/refresh { refresh_token }
+  → новые access_token + refresh_token
+  → старый refresh_token помечается revoked=true (rotation)
+
+Логаут:
+  POST /api/auth/logout { refresh_token }
+  → refresh_token revoked=true в БД
+  → clearToken() на клиенте
+```
+
+### Роли
+- `user` — стандартный доступ к своему workspace
+- `admin` — дополнительно: `/api/admin/*` (управление пользователями)
+
+### Email флоу
+```
+Регистрация → create_email_token(type='verify_email') → письмо со ссылкой
+Ссылка: /verify-email?token=<raw_token>
+Frontend → POST /api/auth/verify-email { token }
+→ token_hash найден, не использован, не просрочен
+→ user.email_verified = true, token.used_at = now()
+
+Забыли пароль → POST /api/auth/forgot-password { email }
+→ create_email_token(type='reset_password') → письмо
+→ всегда 200 (не раскрываем существование email)
+Ссылка: /reset-password?token=<raw_token>
+→ POST /api/auth/reset-password { token, new_password }
+→ token consumed, password_hash обновлён
+```
+
+### Bootstrap первого admin
+При старте API — если `FIRST_ADMIN_EMAIL` задан и в БД нет ни одного admin,
+создаётся или обновляется пользователь с `role='admin'` и `email_verified=true`.
+
+---
+
+## 5. Ключевые потоки данных
 
 ### 4.1 Загрузка и индексация документа
 

@@ -17,8 +17,8 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const { access_token } = await login(email, password);
-      setToken(access_token);
+      const { access_token, refresh_token } = await login(email, password);
+      setToken(access_token, refresh_token);
       router.replace("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -57,7 +57,12 @@ export default function LoginPage() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-gray-600">Password</label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-gray-600">Password</label>
+              <Link href="/forgot-password" className="text-xs text-indigo-500 hover:text-indigo-600">
+                Forgot password?
+              </Link>
+            </div>
             <input
               type="password"
               required

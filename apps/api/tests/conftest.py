@@ -6,6 +6,14 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 
 from database import Base, get_db
 from main import app
+import services.document as doc_service
+
+
+@pytest.fixture(scope="session", autouse=True)
+def patch_upload_dir(tmp_path_factory):
+    tmp = tmp_path_factory.mktemp("uploads")
+    doc_service.UPLOAD_DIR = tmp
+    yield tmp
 
 # In-memory SQLite for tests — не нужен реальный Postgres
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"

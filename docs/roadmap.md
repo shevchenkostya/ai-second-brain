@@ -210,6 +210,34 @@ Prepare the application for VPS deployment and future integrations.
 
 ---
 
+## Sprint 9 — Full Auth System & User Management
+
+### Goal
+Implement production-grade authentication: refresh tokens, email verification, password reset, user blocking, role-based access, and admin panel.
+
+### Deliverables
+- Refresh token rotation (30-day, stored as SHA-256 hash)
+- Email verification flow (token sent on registration)
+- Password reset via email link
+- Password change for authenticated users
+- User blocking / deactivation by admin
+- Role system: `user` / `admin`
+- Admin panel: list, block, promote, delete users, force-verify email
+- First admin bootstrap via environment variables
+- SMTP email service (dev: stdout, prod: SMTP)
+- Auto-refresh of access token on 401 in frontend
+- New pages: `/settings`, `/forgot-password`, `/reset-password`, `/verify-email`, `/admin/users`
+
+### Exit Criteria
+- Register → receive verification email → click link → email verified
+- Forgot password → email → reset link → new password works
+- Admin can block user → blocked user cannot login
+- Admin panel visible only to users with `role=admin`
+- Refresh token rotates on each use; old token is rejected
+- All new flows covered by tests
+
+---
+
 ## MVP Scope Summary
 
 The MVP is complete when the user can:
