@@ -238,6 +238,49 @@ Implement production-grade authentication: refresh tokens, email verification, p
 
 ---
 
+## Sprint 10 — Per-User Model Settings
+
+### Goal
+Allow each user to configure their own LLM provider and API key. The system stops depending on a single global API key and routes all AI calls through the user's personal settings.
+
+### Deliverables
+- `user_model_settings` table: provider, model_name, encrypted api_key, base_url
+- Fernet encryption for API keys at rest (server-side `ENCRYPTION_KEY`)
+- GET / PUT `/api/settings/model` endpoints
+- Fallback to global env when user has no personal settings
+- Refactored LLM layer: resolves per-user client at request time
+- Settings page: provider selector, model name field, API key input (masked), base URL for Ollama
+- Test-connection button: validates key before saving
+- Supported providers: `anthropic`, `openai`, `ollama`
+
+### Exit Criteria
+- User can select provider, enter API key, and save settings
+- All chat and artifact requests use that user's model/key
+- API key is stored encrypted and never returned in plaintext via API
+- If user has no settings, system falls back to global env defaults
+- Test-connection endpoint returns OK / error before key is committed
+
+### Technical Tasks
+1. Alembic migration `005_add_user_model_settings.py`
+2. `models/user_model_settings.py` — SQLAlchemy model
+3. `services/user_settings.py` — CRUD + Fernet encrypt/decrypt
+4. Refactor `services/llm.py` — `get_llm_client(user_id, db)` resolves per-user then falls back to global
+5. Update `services/chat.py`, `services/analyst.py`, `services/architect.py`, `services/reviewer.py` — pass `user_id` to LLM layer
+6. `routers/settings.py` — GET /api/settings/model, PUT /api/settings/model, POST /api/settings/model/test
+7. `config.py` — add `ENCRYPTION_KEY` (Fernet base64 key)
+8. Frontend: extend `/settings` page with model settings block
+9. Tests: save settings, encrypt/decrypt, fallback logic, masked key in GET response
+
+### Risks
+- Fernet key rotation: if `ENCRYPTION_KEY` changes, existing keys become unreadable → document key rotation procedure
+- User enters wrong key: validate at save time via test-connection, surface clear error message
+- Ollama URL may not be reachable from the server container (user running it locally) → document limitation
+
+### Dependencies
+- Sprint 9 auth system (user_id in all requests)
+
+---
+
 ## MVP Scope Summary
 
 The MVP is complete when the user can:
